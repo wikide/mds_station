@@ -1,0 +1,8 @@
+.idea
+gallery
+share/current_audio.wav
+share/previous_image.webp
+share/current_image.webp
+share/current_text.txt
+service/.env
+back/.env

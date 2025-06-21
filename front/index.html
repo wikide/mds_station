@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDS Station - Визуализированное радио</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .player-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .visualization {
+            height: 300px;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .visualization img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.5s ease;
+        }
+
+        .visualization .placeholder {
+            position: absolute;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .player-controls {
+            padding: 20px;
+            background: #fff;
+        }
+
+        .track-info {
+            margin-bottom: 20px;
+        }
+
+        .track-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .track-author {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .track-time {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            background: #4a6bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: #3a5bef;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .update-info {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #999;
+            text-align: right;
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+<div class="player-container">
+    <div class="visualization" id="visualization">
+        <div class="placeholder" id="image-placeholder">
+            Генерация визуализации текущего эфира...
+        </div>
+        <img id="current-image" style="display: none;" alt="Визуализация текущего эфира">
+    </div>
+
+    <div class="player-controls">
+        <div class="track-info">
+            <div class="track-title" id="track-name">Загрузка информации...</div>
+            <div class="track-author" id="track-author"></div>
+            <div class="track-time" id="track-time"></div>
+        </div>
+
+        <div class="controls">
+            <button id="play-btn">▶ Воспроизвести</button>
+            <button id="pause-btn" disabled>❚❚ Пауза</button>
+            <button id="stop-btn" disabled>■ Стоп</button>
+        </div>
+
+        <div class="volume-control">
+            <label for="volume">🔈 Громкость:</label>
+            <input type="range" id="volume" min="0" max="1" step="0.05" value="0.7">
+        </div>
+
+        <div class="update-info">
+            Последнее обновление: <span id="last-updated">неизвестно</span>
+            <span id="update-indicator" style="margin-left: 10px;"></span>
+        </div>
+    </div>
+</div>
+
+<audio id="audio-player" preload="none">
+    Ваш браузер не поддерживает элемент audio.
+</audio>
+
+<script>
+    // Элементы DOM
+    const audioPlayer = document.getElementById('audio-player');
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const volumeControl = document.getElementById('volume');
+    const trackNameElement = document.getElementById('track-name');
+    const trackAuthorElement = document.getElementById('track-author');
+    const trackTimeElement = document.getElementById('track-time');
+    const currentImageElement = document.getElementById('current-image');
+    const imagePlaceholder = document.getElementById('image-placeholder');
+    const lastUpdatedElement = document.getElementById('last-updated');
+    const updateIndicator = document.getElementById('update-indicator');
+
+    // URL прокси
+    const proxyUrl = 'http://localhost:8000/';
+
+    // Переменная для хранения текущего изображения
+    let currentImageUrl = '';
+    let lastUpdateTime = 0;
+
+    // Функция для проверки обновлений изображения
+    async function checkForUpdates() {
+        try {
+            updateIndicator.textContent = '🔄 Проверка обновлений...';
+            updateIndicator.classList.add('loading');
+
+            // Добавляем timestamp для предотвращения кеширования
+            const response = await fetch(`${proxyUrl}?t=${Date.now()}`);
+            const data = await response.json();
+
+            console.log(data);
+
+            if (data.success) {
+
+                // Установка источника аудио
+                if (audioPlayer.src === '') {
+                    audioPlayer.src = data.stream;
+                }
+
+                // Обновляем текст
+                if (data.text) {
+                    trackNameElement.textContent = data.text.length > 100
+                        ? `${data.text.substring(0, 100)}...`
+                        : data.text;
+                }
+
+                // Обновляем изображение, если оно изменилось
+                if (data.image_url && data.image_url !== currentImageUrl) {
+                    currentImageUrl = data.image_url;
+
+                    // Показываем placeholder во время загрузки
+                    currentImageElement.style.display = 'none';
+                    imagePlaceholder.style.display = 'block';
+                    imagePlaceholder.textContent = 'Загрузка новой визуализации...';
+
+                    // Предзагружаем изображение
+                    const img = new Image();
+                    img.onload = () => {
+                        currentImageElement.src = currentImageUrl;
+                        currentImageElement.style.display = 'block';
+                        imagePlaceholder.style.display = 'none';
+                        lastUpdatedElement.textContent = data.last_updated || 'только что';
+                    };
+                    img.onerror = () => {
+                        imagePlaceholder.textContent = 'Ошибка загрузки изображения';
+                    };
+                    img.src = currentImageUrl;
+                }
+
+                // Обновляем время последнего обновления
+                if (data.last_updated) {
+                    lastUpdatedElement.textContent = data.last_updated;
+                }
+
+                lastUpdateTime = data.timestamp;
+            }
+
+            updateIndicator.textContent = '✔ Актуально';
+            updateIndicator.classList.remove('loading');
+
+        } catch (error) {
+            console.error('Ошибка при проверке обновлений:', error);
+            updateIndicator.textContent = '❌ Ошибка';
+            updateIndicator.classList.remove('loading');
+        }
+    }
+
+    setInterval(checkForUpdates, 180000);
+
+    // Первоначальная загрузка
+    checkForUpdates();
+
+    // Обработчики событий для кнопок
+    playBtn.addEventListener('click', () => {
+        audioPlayer.play()
+            .then(() => {
+                playBtn.disabled = true;
+                pauseBtn.disabled = false;
+                stopBtn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Ошибка воспроизведения:', error);
+                alert('Не удалось начать воспроизведение. Проверьте подключение к интернету.');
+            });
+    });
+
+    pauseBtn.addEventListener('click', () => {
+        audioPlayer.pause();
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+    });
+
+    stopBtn.addEventListener('click', () => {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+        stopBtn.disabled = true;
+    });
+
+    // Контроль громкости
+    volumeControl.addEventListener('input', () => {
+        audioPlayer.volume = volumeControl.value;
+    });
+
+    // Обработчики событий аудиоплеера
+    audioPlayer.addEventListener('playing', () => {
+        console.log('Воспроизведение начато');
+    });
+
+    audioPlayer.addEventListener('error', () => {
+        console.error('Ошибка аудиоплеера:', audioPlayer.error);
+        alert('Произошла ошибка при воспроизведении потока.');
+    });
+</script>
+</body>
+</html>
