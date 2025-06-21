@@ -180,72 +180,61 @@
     const updateIndicator = document.getElementById('update-indicator');
 
     // URL прокси
-    const proxyUrl = 'http://localhost:8000/';
+    const proxyUrl = 'https://proxy.mds.d0h.ru/';
+
+    audioPlayer.src = 'https://mds-station.com:8000/mds';
 
     // Переменная для хранения текущего изображения
     let currentImageUrl = '';
     let lastUpdateTime = 0;
 
     // Функция для проверки обновлений изображения
-    async function checkForUpdates() {
+    async function checkForUpdates(first) {
         try {
             updateIndicator.textContent = '🔄 Проверка обновлений...';
             updateIndicator.classList.add('loading');
 
-            // Добавляем timestamp для предотвращения кеширования
             const response = await fetch(`${proxyUrl}?t=${Date.now()}`);
-            const data = await response.json();
+            const result = await response.json(); // Получаем весь объект ответа
 
-            console.log(data);
-
-            if (data.success) {
-
-                // Установка источника аудио
-                if (audioPlayer.src === '') {
-                    audioPlayer.src = data.stream;
+            // Проверяем success и извлекаем data
+            if (result.success && result.data) {
+                const data = result.data; // Основные данные теперь здесь
+                audioPlayer.src = data.stream;
+                audioPlayer.crossOrigin = "anonymous";
+                // Обновляем текст (data.text вместо data.current_track)
+                if (data.text)   {
+                    trackNameElement.textContent = data.current_track.name;
                 }
 
-                // Обновляем текст
-                if (data.text) {
-                    trackNameElement.textContent = data.text.length > 100
-                        ? `${data.text.substring(0, 100)}...`
-                        : data.text;
+                // Обновляем автора (если нужно)
+                if (data.current_track?.author) {
+                    trackAuthorElement.textContent = data.current_track.author;
                 }
 
-                // Обновляем изображение, если оно изменилось
+                // Обновляем изображение (data.image_url)
                 if (data.image_url && data.image_url !== currentImageUrl) {
                     currentImageUrl = data.image_url;
-
-                    // Показываем placeholder во время загрузки
                     currentImageElement.style.display = 'none';
                     imagePlaceholder.style.display = 'block';
                     imagePlaceholder.textContent = 'Загрузка новой визуализации...';
 
-                    // Предзагружаем изображение
                     const img = new Image();
                     img.onload = () => {
                         currentImageElement.src = currentImageUrl;
                         currentImageElement.style.display = 'block';
                         imagePlaceholder.style.display = 'none';
-                        lastUpdatedElement.textContent = data.last_updated || 'только что';
+                        lastUpdatedElement.textContent = new Date(data.timestamp * 1000).toLocaleTimeString();
                     };
                     img.onerror = () => {
                         imagePlaceholder.textContent = 'Ошибка загрузки изображения';
                     };
                     img.src = currentImageUrl;
                 }
-
-                // Обновляем время последнего обновления
-                if (data.last_updated) {
-                    lastUpdatedElement.textContent = data.last_updated;
-                }
-
-                lastUpdateTime = data.timestamp;
             }
 
             updateIndicator.textContent = '✔ Актуально';
             updateIndicator.classList.remove('loading');
-
         } catch (error) {
             console.error('Ошибка при проверке обновлений:', error);
             updateIndicator.textContent = '❌ Ошибка';
@@ -256,20 +245,28 @@
     setInterval(checkForUpdates, 180000);
 
     // Первоначальная загрузка
-    checkForUpdates();
+    checkForUpdates(true);
 
-    // Обработчики событий для кнопок
-    playBtn.addEventListener('click', () => {
-        audioPlayer.play()
-            .then(() => {
-                playBtn.disabled = true;
-                pauseBtn.disabled = false;
-                stopBtn.disabled = false;
-            })
-            .catch(error => {
-                console.error('Ошибка воспроизведения:', error);
-                alert('Не удалось начать воспроизведение. Проверьте подключение к интернету.');
-            });
+    playBtn.addEventListener('click', async () => {
+        try {
+
+            // 2. Проверяем, что источник аудио установлен
+            if (!audioPlayer.src) {
+                throw new Error("Аудиопоток не загружен");
+            }
+
+            // 3. Пытаемся воспроизвести
+            await audioPlayer.play();
+
+            // 4. Обновляем состояние кнопок
+            playBtn.disabled = true;
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+
+        } catch (error) {
+            console.error('Ошибка воспроизведения:', error);
+            alert(`Ошибка: ${error.message}`);
+        }
     });
 
     pauseBtn.addEventListener('click', () => {
