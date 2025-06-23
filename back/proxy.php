@@ -5,6 +5,7 @@ class MDSProxy {
     private $baseUrl = 'https://mds-station.com/api/';
     private $imagePath = '../share/current_image.webp';
     private $textPath = '../share/current_text.txt';
+    private $genrePath = '../share/genre.csv';
 
     public function __construct() {
         if (file_exists(__DIR__ . '/.env')) {
@@ -67,6 +68,15 @@ class MDSProxy {
         // Получаем текущий трек
         $currentTrack = $this->getCurrentTrack();
         if ($currentTrack) {
+            $genreData = explode("\n", file_get_contents($this->genrePath));
+            $data = [];
+            foreach ($genreData as $genre) {
+                $tmp = explode(';', $genre);
+                $data[$tmp[0]] = $tmp[1];
+            }
+            if (isset($data["{$currentTrack['author']} {$currentTrack['name']}"])) {
+                $currentTrack['genre'] = $data["{$currentTrack['author']} {$currentTrack['name']}"];
+            }
             $result['data']['current_track'] = $currentTrack;
         } else {
             $result['errors'][] = 'Не удалось получить текущий трек';
@@ -112,7 +122,7 @@ if (isset($_GET['img'])) {
     header("Content-Type: image/webp");
     readfile('../share/current_image.webp');
     exit;
-} elseif($_GET['stream']) {
+} elseif(isset($_GET['stream'])) {
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: GET, OPTIONS');
     header('Access-Control-Expose-Headers: *');
@@ -124,24 +134,6 @@ if (isset($_GET['img'])) {
     fpassthru($fp);
     fclose($fp);
     exit;
-/*
-
-    $stream_url = 'http://mds-station.com:8000/mds'; // Оригинальный HTTP-поток
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $stream_url);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-    curl_setopt($ch, CURLOPT_HEADER, false);
-
-    // Передаём заголовки от клиента
-    if (isset($_SERVER['HTTP_RANGE'])) {
-        curl_setopt($ch, CURLOPT_RANGE, str_replace('bytes=', '', $_SERVER['HTTP_RANGE']));
-    }
-
-    curl_exec($ch);
-    curl_close($ch);
-*/  
 } else {
     header('Content-Type: application/json');
     header('Access-Control-Allow-Origin: *');

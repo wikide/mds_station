@@ -3,160 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MDS Station - Визуализированное радио</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-
-        .player-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .visualization {
-            height: 300px;
-            background: linear-gradient(135deg, #6e8efb, #a777e3);
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 18px;
-        }
-
-        .visualization img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: opacity 0.5s ease;
-        }
-
-        .visualization .placeholder {
-            position: absolute;
-            text-align: center;
-            padding: 20px;
-        }
-
-        .player-controls {
-            padding: 20px;
-            background: #fff;
-        }
-
-        .track-info {
-            margin-bottom: 20px;
-        }
-
-        .track-title {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .track-author {
-            font-size: 18px;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .track-time {
-            font-size: 14px;
-            color: #888;
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        button {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            background: #4a6bff;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        button:hover {
-            background: #3a5bef;
-            transform: translateY(-2px);
-        }
-
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .volume-control {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .update-info {
-            margin-top: 15px;
-            font-size: 13px;
-            color: #999;
-            text-align: right;
-        }
-
-        .loading {
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-        }
-    </style>
+    <title>MDS Station - радио модель для сборки</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="player-container">
     <div class="visualization" id="visualization">
-        <div class="placeholder" id="image-placeholder">
-            Генерация визуализации текущего эфира...
-        </div>
-        <img id="current-image" style="display: none;" alt="Визуализация текущего эфира">
+        <div class="placeholder" id="image-placeholder">Загрузка иллюстрации</div>
+        <img id="current-image" style="display: none;" alt="Иллюстрация к эфиру">
+    </div>
+    <div class="progress-bar">
+        <div class="progress-fill" id="track-progress" style="width: 0%"></div>
     </div>
 
     <div class="player-controls">
         <div class="track-info">
+            <div class="track-genre" id="track-genre"></div>
             <div class="track-title" id="track-name">Загрузка информации...</div>
             <div class="track-author" id="track-author"></div>
             <div class="track-time" id="track-time"></div>
+            <div id="next-track" class="track-info" style="color: #999; font-size: 12px;">
+                Далее: <span class="track-title" id="next-name" style="font-size: 12px;"></span>
+                <span class="track-author" id="next-author" style="font-size: 10px;"></span>
+            </div>
         </div>
-
         <div class="controls">
-            <button id="play-btn">▶ Воспроизвести</button>
-            <button id="pause-btn" disabled>❚❚ Пауза</button>
-            <button id="stop-btn" disabled>■ Стоп</button>
+            <button id="play-btn">▶</button>
+            <button id="pause-btn" disabled>❚❚</button>
         </div>
-
-        <div class="volume-control">
-            <label for="volume">🔈 Громкость:</label>
-            <input type="range" id="volume" min="0" max="1" step="0.05" value="0.7">
-        </div>
-
-        <div class="update-info">
-            Последнее обновление: <span id="last-updated">неизвестно</span>
-            <span id="update-indicator" style="margin-left: 10px;"></span>
-        </div>
+    </div>
+    <div id="footer">
+        <a target="_blank" href="https://t.me/web3_devi" class="dev-link">@web3_devi</a>
+        <span id="year"></span>
     </div>
 </div>
 
@@ -164,139 +42,23 @@
     Ваш браузер не поддерживает элемент audio.
 </audio>
 
-<script>
-    // Элементы DOM
-    const audioPlayer = document.getElementById('audio-player');
-    const playBtn = document.getElementById('play-btn');
-    const pauseBtn = document.getElementById('pause-btn');
-    const stopBtn = document.getElementById('stop-btn');
-    const volumeControl = document.getElementById('volume');
-    const trackNameElement = document.getElementById('track-name');
-    const trackAuthorElement = document.getElementById('track-author');
-    const trackTimeElement = document.getElementById('track-time');
-    const currentImageElement = document.getElementById('current-image');
-    const imagePlaceholder = document.getElementById('image-placeholder');
-    const lastUpdatedElement = document.getElementById('last-updated');
-    const updateIndicator = document.getElementById('update-indicator');
+<script type="application/javascript" src="script.js"></script>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript" >
+    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+    (window, document, "script", "https://mc.yandex.ru/metrika/tag.js", "ym");
 
-    // URL прокси
-    const proxyUrl = 'https://proxy.mds.d0h.ru/';
-
-    audioPlayer.src = 'https://mds-station.com:8000/mds';
-
-    // Переменная для хранения текущего изображения
-    let currentImageUrl = '';
-    let lastUpdateTime = 0;
-
-    // Функция для проверки обновлений изображения
-    async function checkForUpdates(first) {
-        try {
-            updateIndicator.textContent = '🔄 Проверка обновлений...';
-            updateIndicator.classList.add('loading');
-
-            const response = await fetch(`${proxyUrl}?t=${Date.now()}`);
-            const result = await response.json(); // Получаем весь объект ответа
-
-            // Проверяем success и извлекаем data
-            if (result.success && result.data) {
-                const data = result.data; // Основные данные теперь здесь
-                audioPlayer.src = data.stream;
-                audioPlayer.crossOrigin = "anonymous";
-                // Обновляем текст (data.text вместо data.current_track)
-                if (data.text)   {
-                    trackNameElement.textContent = data.current_track.name;
-                }
-
-                // Обновляем автора (если нужно)
-                if (data.current_track?.author) {
-                    trackAuthorElement.textContent = data.current_track.author;
-                }
-
-                // Обновляем изображение (data.image_url)
-                if (data.image_url && data.image_url !== currentImageUrl) {
-                    currentImageUrl = data.image_url;
-                    currentImageElement.style.display = 'none';
-                    imagePlaceholder.style.display = 'block';
-                    imagePlaceholder.textContent = 'Загрузка новой визуализации...';
-
-                    const img = new Image();
-                    img.onload = () => {
-                        currentImageElement.src = currentImageUrl;
-                        currentImageElement.style.display = 'block';
-                        imagePlaceholder.style.display = 'none';
-                        lastUpdatedElement.textContent = new Date(data.timestamp * 1000).toLocaleTimeString();
-                    };
-                    img.onerror = () => {
-                        imagePlaceholder.textContent = 'Ошибка загрузки изображения';
-                    };
-                    img.src = currentImageUrl;
-                }
-            }
-
-            updateIndicator.textContent = '✔ Актуально';
-            updateIndicator.classList.remove('loading');
-        } catch (error) {
-            console.error('Ошибка при проверке обновлений:', error);
-            updateIndicator.textContent = '❌ Ошибка';
-            updateIndicator.classList.remove('loading');
-        }
-    }
-
-    setInterval(checkForUpdates, 180000);
-
-    // Первоначальная загрузка
-    checkForUpdates(true);
-
-    playBtn.addEventListener('click', async () => {
-        try {
-
-            // 2. Проверяем, что источник аудио установлен
-            if (!audioPlayer.src) {
-                throw new Error("Аудиопоток не загружен");
-            }
-
-            // 3. Пытаемся воспроизвести
-            await audioPlayer.play();
-
-            // 4. Обновляем состояние кнопок
-            playBtn.disabled = true;
-            pauseBtn.disabled = false;
-            stopBtn.disabled = false;
-
-        } catch (error) {
-            console.error('Ошибка воспроизведения:', error);
-            alert(`Ошибка: ${error.message}`);
-        }
-    });
-
-    pauseBtn.addEventListener('click', () => {
-        audioPlayer.pause();
-        playBtn.disabled = false;
-        pauseBtn.disabled = true;
-    });
-
-    stopBtn.addEventListener('click', () => {
-        audioPlayer.pause();
-        audioPlayer.currentTime = 0;
-        playBtn.disabled = false;
-        pauseBtn.disabled = true;
-        stopBtn.disabled = true;
-    });
-
-    // Контроль громкости
-    volumeControl.addEventListener('input', () => {
-        audioPlayer.volume = volumeControl.value;
-    });
-
-    // Обработчики событий аудиоплеера
-    audioPlayer.addEventListener('playing', () => {
-        console.log('Воспроизведение начато');
-    });
-
-    audioPlayer.addEventListener('error', () => {
-        console.error('Ошибка аудиоплеера:', audioPlayer.error);
-        alert('Произошла ошибка при воспроизведении потока.');
+    ym(102947021, "init", {
+        clickmap:true,
+        trackLinks:true,
+        accurateTrackBounce:true,
+        webvisor:true
     });
 </script>
+<noscript><div><img src="https://mc.yandex.ru/watch/102947021" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
 </body>
 </html>

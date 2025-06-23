@@ -24,7 +24,6 @@ AUDIO_FILE = "../share/current_audio.wav"
 TEXT_FILE = "../share/current_text.txt"
 IMAGE_FILE = "../share/current_image.webp"
 GENRE_CACHE_FILE = "../share/genre.csv"
-PREV_IMAGE_FILE = "../share/previous_image.webp"
 
 # API Keys
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
@@ -207,7 +206,7 @@ def get_genre(author, title):
 
     # Проверяем кэш
     if cache_key in genre_cache:
-        print(f"Жанр взят из кэша: {genre_cache[cache_key]}")
+        #print(f"Жанр взят из кэша: {genre_cache[cache_key]}")
         return genre_cache[cache_key]
 
     # Если нет в кэше, определяем жанр
@@ -247,7 +246,7 @@ def get_genre(author, title):
         if genre not in ['фантастика', 'фэнтези', 'киберпанк', 'ужасы', 'детектив', 'роман']:
             genre = "другое"
 
-        print(f"Жанр получен из модели: {genre}")
+        #print(f"Жанр получен из модели: {genre}")
 
         # Сохраняем в кэш
         genre_cache[cache_key] = genre
@@ -325,6 +324,12 @@ def generate_image_fusionbrain(prompt):
             status_data = status_response.json()
 
             if status_data['status'] == 'DONE':
+
+                censored = status_data['result']['censored']
+
+                if censored:
+                    raise Exception(f"Ошибка генерации: {status_data.get('errorDescription')}")
+
                 # Получаем base64-строку из ответа
                 base64_image = status_data['result']['files'][0]
 
@@ -360,7 +365,7 @@ def generate_image_fusionbrain(prompt):
 
 def process_cycle():
     """Основной цикл обработки"""
-    print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Начало цикла")
+    #print(f"\n{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Начало цикла")
 
     # 1. Получаем информацию о текущем треке
     track_info = get_current_track_info()
@@ -371,7 +376,7 @@ def process_cycle():
     author = track_info.get('author', 'Неизвестный автор')
     title = track_info.get('name', 'Без названия')
 
-    print(f"Текущий трек: {author} - {title}")
+    #print(f"Текущий трек: {author} - {title}")
 
     # 2. Запись аудио
     if not record_audio():
@@ -382,7 +387,7 @@ def process_cycle():
     if not text:
         return False
 
-    print(f"Распознанный текст: {text[:200]}...")
+    #print(f"Распознанный текст: {text[:200]}...")
 
     # 4. Генерация промпта с учётом автора и названия
     genre = get_genre(author, title)
@@ -390,7 +395,7 @@ def process_cycle():
     if not prompt:
         return False
 
-    print(f"Сгенерированный промпт: {prompt}")
+    # print(f"Сгенерированный промпт: {prompt}")
 
     # 5. Генерация изображения
     if not generate_image_fusionbrain(prompt):
@@ -400,24 +405,18 @@ def process_cycle():
     with open(TEXT_FILE, "w", encoding="utf-8") as f:
         f.write(f"{author} - {title}\n\n{text}")
 
-    print("Цикл успешно завершён!")
+    #print("Цикл успешно завершён!")
     return True
 
 def main():
     # Создаем директории, если их нет
     os.makedirs("../share", exist_ok=True)
 
-    # Проверяем существование предыдущего изображения
-    if not os.path.exists(PREV_IMAGE_FILE):
-        # Создаём placeholder изображение
-        with open(PREV_IMAGE_FILE, "wb") as f:
-            f.write(b"")
-
     while True:
         success = process_cycle()
 
-        if not success:
-            print("Используем предыдущее успешное изображение")
+        #if not success:
+            #print("Используем старое изображение")
 
         # Ждём 10 минут до следующего цикла
         time.sleep(RECORD_DURATION)
